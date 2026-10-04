@@ -1,0 +1,35 @@
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Java
+api/target/
+
+# Node
+web/node_modules/
+web/dist/
+web/coverage/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+plan.txt
+crash.log
+crash.*.log
+# Written by the deploy workflow from GitHub environment variables.
+pipeline.auto.tfvars.json
+infra/bootstrap/terraform.tfvars

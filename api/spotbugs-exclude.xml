@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+        EI_EXPOSE_REP / EI_EXPOSE_REP2 flag every constructor-injected Spring bean and every JPA
+        association. Collections exposed by aggregates are returned as unmodifiable views.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <!--
+        Finalizer-attack check. JPA entities cannot be final (Hibernate subclasses them for lazy
+        loading) and their constructors deliberately reject invalid state.
+    -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+        <Package name="~io\.cloudops\.platform\..*\.domain"/>
+    </Match>
+</FindBugsFilter>
