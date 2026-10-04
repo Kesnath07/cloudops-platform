@@ -1,0 +1,135 @@
+name: Deploy environment
+
+# Reusable deployment of one environment: infrastructure and API release through Terraform,
+# console upload to S3, CDN invalidation, then verification against the public URL.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Target environment (dev or prod)
+        type: string
+        required: true
+      image-tag:
+        description: Commit SHA of the API image in ECR
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.outputs.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      IMAGE_TAG: ${{ inputs.image-tag }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Authenticate to AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: cloudops-deploy-${{ inputs.environment }}
+
+      - name: Terraform init
+        uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ inputs.environment }}
+          state-bucket: ${{ vars.TF_STATE_BUCKET }}
+
+      # Account-specific settings come from GitHub environment variables, so committed tfvars
+      # stay generic. Unset variables are omitted and fall back to the Terraform defaults.
+      - name: Write pipeline variables
+        env:
+          DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
+          HOSTED_ZONE_ID: ${{ vars.HOSTED_ZONE_ID }}
+          BOOTSTRAP_ADMIN_EMAIL: ${{ vars.BOOTSTRAP_ADMIN_EMAIL }}
+          ALARM_EMAILS: ${{ vars.ALARM_EMAILS }}
+          INCIDENT_EMAILS: ${{ vars.INCIDENT_NOTIFICATION_EMAILS }}
+        run: |
+          jq -n \
+            --arg tag "$IMAGE_TAG" \
+            --arg domain "$DOMAIN_NAME" \
+            --arg zone "$HOSTED_ZONE_ID" \
+            --arg admin "$BOOTSTRAP_ADMIN_EMAIL" \
+            --arg alarms "$ALARM_EMAILS" \
+            --arg incidents "$INCIDENT_EMAILS" '
+            def list($csv): $csv | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0));
+            {api_image_tag: $tag}
+            + (if $domain != "" then {domain_name: $domain, hosted_zone_id: $zone} else {} end)
+            + (if $admin != "" then {bootstrap_admin_email: $admin} else {} end)
+            + (if $alarms != "" then {alarm_emails: list($alarms)} else {} end)
+            + (if $incidents != "" then {incident_notification_emails: list($incidents)} else {} end)
+            ' > pipeline.auto.tfvars.json
+          jq 'del(.alarm_emails, .incident_notification_emails, .bootstrap_admin_email)' pipeline.auto.tfvars.json
+
+      - name: Terraform plan
+        run: |
+          terraform plan -input=false -no-color \
+            -var-file="environments/${ENVIRONMENT}/terraform.tfvars" \
+            -out=tfplan | tee plan.txt
+          {
+            echo "### Terraform plan · ${ENVIRONMENT}"
+            echo '```'
+            grep -E '^(Plan:|No changes)' plan.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ECS waits for the new tasks to pass health checks; the deployment circuit breaker rolls
+      # back automatically if they never become healthy.
+      - name: Terraform apply
+        run: terraform apply -input=false -no-color tfplan
+
+      - name: Read outputs
+        id: outputs
+        run: |
+          {
+            echo "url=$(terraform output -raw url)"
+            echo "bucket=$(terraform output -raw site_bucket_name)"
+            echo "distribution=$(terraform output -raw cloudfront_distribution_id)"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-dist
+          path: ${{ runner.temp }}/web-dist
+
+      # Fingerprinted assets are cached for a year; the HTML shell must always be revalidated.
+      - name: Upload console
+        env:
+          BUCKET: ${{ steps.outputs.outputs.bucket }}
+          DIST: ${{ runner.temp }}/web-dist
+        run: |
+          aws s3 sync "$DIST/assets" "s3://$BUCKET/assets" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync "$DIST" "s3://$BUCKET" --delete --exclude "assets/*" \
+            --cache-control "no-cache"
+          aws s3 sync "$DIST/assets" "s3://$BUCKET/assets" --delete \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Invalidate CDN
+        env:
+          DISTRIBUTION: ${{ steps.outputs.outputs.distribution }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths "/*" \
+            --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+      - name: Verify deployment
+        env:
+          URL: ${{ steps.outputs.outputs.url }}
+        run: ../scripts/verify-deployment.sh "$URL" "$IMAGE_TAG"

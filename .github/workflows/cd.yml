@@ -1,0 +1,83 @@
+name: CD
+
+# Every commit on main is validated, published once, deployed to dev, verified, and then promoted
+# to prod after the prod environment's protection rules (required reviewers) are satisfied.
+# The image deployed to prod is byte-for-byte the one that was scanned in CI and verified in dev.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    with:
+      publish-artifacts: true
+
+  publish-image:
+    name: Publish API image
+    needs: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: api-image
+          path: ${{ runner.temp }}
+      - name: Authenticate to AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      # Tags are immutable, so a re-run of the same commit skips the push instead of failing.
+      - name: Push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: cloudops-api
+        run: |
+          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids "imageTag=$IMAGE_TAG" >/dev/null 2>&1; then
+            echo "Image $REPOSITORY:$IMAGE_TAG already published"
+            exit 0
+          fi
+          docker load --input "$RUNNER_TEMP/api-image.tar"
+          docker tag "cloudops-api:$IMAGE_TAG" "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker push "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          echo "Published \`$REGISTRY/$REPOSITORY:$IMAGE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-dev:
+    name: Dev
+    needs: publish-image
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: dev
+      image-tag: ${{ github.sha }}
+
+  deploy-prod:
+    name: Prod
+    needs: deploy-dev
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: prod
+      image-tag: ${{ github.sha }}
