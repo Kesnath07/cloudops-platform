@@ -1,0 +1,23 @@
+# Activated on ECS via SPRING_PROFILES_ACTIVE=aws.
+logging:
+  structured:
+    format:
+      console: ecs
+
+spring:
+  datasource:
+    hikari:
+      # RDS enforces TLS (rds.force_ssl); verify the server certificate chain as well.
+      data-source-properties:
+        sslmode: verify-full
+        sslrootcert: /opt/cloudops/rds-global-bundle.pem
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+cloudops:
+  notifications:
+    channel: sns

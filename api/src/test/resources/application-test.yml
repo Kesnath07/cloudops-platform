@@ -1,0 +1,6 @@
+cloudops:
+  security:
+    jwt:
+      secret: test-only-signing-key-not-used-outside-tests
+  identity:
+    bootstrap-admin-email: admin@cloudops.test

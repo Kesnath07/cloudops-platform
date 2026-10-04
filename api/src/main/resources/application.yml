@@ -1,0 +1,73 @@
+# Defaults target local development. Every environment-specific value is supplied through
+# environment variables; secrets have no defaults so a misconfigured deployment fails at startup.
+spring:
+  application:
+    name: cloudops-api
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cloudops}
+    username: ${SPRING_DATASOURCE_USERNAME:cloudops}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    hikari:
+      pool-name: cloudops-db
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 5000  # milliseconds
+      max-lifetime: 1800000  # 30 minutes, below the RDS idle timeout
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: 8080
+  shutdown: graceful
+  # Honour X-Forwarded-* from the load balancer (trusted private address ranges only).
+  forward-headers-strategy: native
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  info:
+    build:
+      enabled: true
+
+springdoc:
+  api-docs:
+    enabled: ${CLOUDOPS_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${CLOUDOPS_API_DOCS_ENABLED:true}
+
+cloudops:
+  release: ${CLOUDOPS_RELEASE:local}
+  security:
+    jwt:
+      secret: ${CLOUDOPS_JWT_SECRET:}
+      issuer: cloudops-platform
+      access-token-ttl: ${CLOUDOPS_ACCESS_TOKEN_TTL:1h}
+  identity:
+    bootstrap-admin-email: ${CLOUDOPS_BOOTSTRAP_ADMIN_EMAIL:}
+  notifications:
+    channel: ${CLOUDOPS_NOTIFICATION_CHANNEL:log}
+    sns-topic-arn: ${CLOUDOPS_INCIDENT_TOPIC_ARN:}
+    minimum-severity: ${CLOUDOPS_NOTIFICATION_MIN_SEVERITY:SEV2}
