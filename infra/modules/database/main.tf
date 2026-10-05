@@ -136,6 +136,7 @@ resource "aws_db_instance" "this" {
   copy_tags_to_snapshot     = true
   deletion_protection       = var.deletion_protection
   skip_final_snapshot       = !var.deletion_protection
+  delete_automated_backups  = !var.deletion_protection
   final_snapshot_identifier = "${local.identifier}-final"
 
   auto_minor_version_upgrade      = true

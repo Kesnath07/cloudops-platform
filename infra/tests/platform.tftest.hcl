@@ -141,6 +141,49 @@ run "domain_requires_hosted_zone" {
   expect_failures = [var.hosted_zone_id]
 }
 
+run "production_requires_protective_settings" {
+  command = plan
+
+  variables {
+    environment = "prod"
+  }
+
+  expect_failures = [
+    var.single_nat_gateway,
+    var.db_multi_az,
+    var.db_backup_retention_days,
+    var.deletion_protection,
+    var.enable_waf,
+  ]
+}
+
+run "production_environment_settings_are_accepted" {
+  command = plan
+
+  variables {
+    environment              = "prod"
+    vpc_cidr                 = "10.50.0.0/16"
+    az_count                 = 3
+    single_nat_gateway       = false
+    flow_log_traffic_type    = "ALL"
+    api_cpu                  = 1024
+    api_memory               = 2048
+    api_min_count            = 2
+    api_max_count            = 6
+    db_instance_class        = "db.t4g.medium"
+    db_multi_az              = true
+    db_backup_retention_days = 14
+    deletion_protection      = true
+    enable_waf               = true
+    log_retention_days       = 90
+  }
+
+  assert {
+    condition     = length(module.network.availability_zones) == 3
+    error_message = "Production spans three availability zones."
+  }
+}
+
 run "api_scaling_bounds_must_be_ordered" {
   command = plan
 
@@ -356,5 +399,50 @@ run "load_balancer_with_certificate_uses_modern_tls" {
   assert {
     condition     = length(aws_lb_listener.http) == 0 && aws_lb_listener.https[0].ssl_policy == "ELBSecurityPolicy-TLS13-1-2-2021-06"
     error_message = "With a certificate only an HTTPS listener with a TLS 1.2+ policy may exist."
+  }
+}
+
+run "api_tasks_run_unprivileged" {
+  command = apply
+
+  module {
+    source = "./modules/ecs-service"
+  }
+
+  variables {
+    name                    = "cloudops-test"
+    subnet_ids              = ["subnet-a", "subnet-b"]
+    security_group_id       = "sg-0123456789abcdef0"
+    target_group_arn        = "arn:aws:elasticloadbalancing:eu-west-1:123456789012:targetgroup/cloudops-test/0123456789abcdef"
+    kms_key_arn             = "arn:aws:kms:eu-west-1:123456789012:key/test"
+    image                   = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/cloudops-api:0123abc"
+    image_repository_arn    = "arn:aws:ecr:eu-west-1:123456789012:repository/cloudops-api"
+    release                 = "0123abc"
+    app_port                = 8080
+    cpu                     = 512
+    memory                  = 1024
+    desired_count           = 1
+    min_count               = 1
+    max_count               = 2
+    database_address        = "cloudops-test-postgres.example.eu-west-1.rds.amazonaws.com"
+    database_port           = 5432
+    database_name           = "cloudops"
+    database_secret_arn     = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:cloudops-test-db"
+    database_secret_version = 1
+    log_retention_days      = 7
+  }
+
+  assert {
+    condition = (
+      jsondecode(aws_ecs_task_definition.api.container_definitions)[0].readonlyRootFilesystem
+      && jsondecode(aws_ecs_task_definition.api.container_definitions)[0].user == "10001:10001"
+      && jsondecode(aws_ecs_task_definition.api.container_definitions)[0].linuxParameters.capabilities.drop == ["ALL"]
+    )
+    error_message = "The API container must run as a non-root user with a read-only root filesystem and no Linux capabilities."
+  }
+
+  assert {
+    condition     = aws_ecs_service.api.network_configuration[0].assign_public_ip == false
+    error_message = "API tasks must not receive public IP addresses."
   }
 }

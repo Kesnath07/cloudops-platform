@@ -28,6 +28,11 @@ variable "image" {
   type        = string
 }
 
+variable "image_repository_arn" {
+  description = "ARN of the ECR repository holding the image; the only repository the tasks may pull from."
+  type        = string
+}
+
 variable "release" {
   description = "Release identifier exposed by the API, normally the git commit SHA."
   type        = string

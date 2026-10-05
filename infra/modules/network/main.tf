@@ -10,6 +10,7 @@ data "aws_availability_zones" "available" {
 
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
 
 locals {
   azs = slice(data.aws_availability_zones.available.names, 0, var.az_count)
@@ -180,6 +181,12 @@ data "aws_iam_policy_document" "flow_logs_assume" {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
       values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:vpc-flow-log/*"]
     }
   }
 }

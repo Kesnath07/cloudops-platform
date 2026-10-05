@@ -1,12 +1,13 @@
-# Production: zone-redundant egress, database standby, WAF and longer retention.
+# Production: zone-redundant egress, database standby, WAF, full flow logs and longer retention.
 # domain_name, hosted_zone_id and notification recipients are supplied by the pipeline from
 # GitHub environment variables so this file stays free of account-specific values.
 environment = "prod"
 aws_region  = "eu-west-1"
 
-vpc_cidr           = "10.50.0.0/16"
-az_count           = 3
-single_nat_gateway = false
+vpc_cidr              = "10.50.0.0/16"
+az_count              = 3
+single_nat_gateway    = false
+flow_log_traffic_type = "ALL"
 
 api_cpu       = 1024
 api_memory    = 2048

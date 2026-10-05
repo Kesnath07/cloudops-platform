@@ -66,9 +66,10 @@ data "aws_iam_policy_document" "key" {
     }
   }
 
+  # The site behaviour only allows GET/HEAD/OPTIONS, so CloudFront needs to decrypt, never encrypt.
   statement {
     sid       = "CloudFrontReadsEncryptedSiteObjects"
-    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey*"]
+    actions   = ["kms:Decrypt"]
     resources = ["*"]
 
     principals {

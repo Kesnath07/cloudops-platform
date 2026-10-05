@@ -54,6 +54,17 @@ variable "az_count" {
 variable "single_nat_gateway" {
   description = "Share one NAT gateway across AZs (lower cost, AZ-dependent egress)."
   type        = bool
+
+  validation {
+    condition     = var.environment != "prod" || !var.single_nat_gateway
+    error_message = "Production must run one NAT gateway per AZ so egress survives the loss of a zone."
+  }
+}
+
+variable "flow_log_traffic_type" {
+  description = "Traffic captured by VPC flow logs: ACCEPT, REJECT or ALL."
+  type        = string
+  default     = "REJECT"
 }
 
 # --- API service ------------------------------------------------------------------------------
@@ -153,6 +164,11 @@ variable "db_max_allocated_storage" {
 variable "db_multi_az" {
   description = "Run a standby replica in another AZ."
   type        = bool
+
+  validation {
+    condition     = var.environment != "prod" || var.db_multi_az
+    error_message = "Production databases must be Multi-AZ."
+  }
 }
 
 variable "db_backup_retention_days" {
@@ -163,6 +179,11 @@ variable "db_backup_retention_days" {
   validation {
     condition     = var.db_backup_retention_days >= 1 && var.db_backup_retention_days <= 35
     error_message = "db_backup_retention_days must be between 1 and 35."
+  }
+
+  validation {
+    condition     = var.environment != "prod" || var.db_backup_retention_days >= 7
+    error_message = "Production must retain database backups for at least 7 days."
   }
 }
 
@@ -180,6 +201,11 @@ variable "db_password_version" {
 variable "deletion_protection" {
   description = "Protect stateful resources (database, load balancer, buckets) from deletion."
   type        = bool
+
+  validation {
+    condition     = var.environment != "prod" || var.deletion_protection
+    error_message = "Production must enable deletion_protection."
+  }
 }
 
 # --- Edge -------------------------------------------------------------------------------------
@@ -204,6 +230,11 @@ variable "hosted_zone_id" {
 variable "enable_waf" {
   description = "Attach AWS WAF to the CloudFront distribution."
   type        = bool
+
+  validation {
+    condition     = var.environment != "prod" || var.enable_waf
+    error_message = "Production must be protected by AWS WAF."
+  }
 }
 
 variable "cloudfront_price_class" {

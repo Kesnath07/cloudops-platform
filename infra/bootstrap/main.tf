@@ -15,6 +15,11 @@ resource "aws_kms_key" "foundation" {
   description             = "Encrypts Terraform state and container images for cloudops-platform"
   enable_key_rotation     = true
   deletion_window_in_days = 30
+
+  # Scheduling this key for deletion would make every state file and image unreadable.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_kms_alias" "foundation" {
@@ -259,7 +264,6 @@ data "aws_iam_policy_document" "deploy_iam" {
   statement {
     sid = "ManageProjectRoles"
     actions = [
-      "iam:AttachRolePolicy",
       "iam:CreateRole",
       "iam:DeleteRole",
       "iam:DeleteRolePolicy",
@@ -277,6 +281,20 @@ data "aws_iam_policy_document" "deploy_iam" {
       "iam:UpdateRole",
     ]
     resources = [local.managed_role]
+  }
+
+  # Only the AWS managed policies the environment stack actually attaches; anything else (for
+  # example AdministratorAccess) cannot be attached to project roles.
+  statement {
+    sid       = "AttachApprovedManagedPolicies"
+    actions   = ["iam:AttachRolePolicy"]
+    resources = [local.managed_role]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "iam:PolicyARN"
+      values   = ["arn:${local.partition}:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"]
+    }
   }
 
   statement {

@@ -32,6 +32,7 @@ module "network" {
   single_nat_gateway      = var.single_nat_gateway
   kms_key_arn             = module.encryption.key_arn
   flow_log_retention_days = var.log_retention_days
+  flow_log_traffic_type   = var.flow_log_traffic_type
 }
 
 module "security_groups" {
@@ -99,6 +100,7 @@ module "api" {
   target_group_arn             = module.load_balancer.target_group_arn
   kms_key_arn                  = module.encryption.key_arn
   image                        = "${data.aws_ecr_repository.api.repository_url}:${var.api_image_tag}"
+  image_repository_arn         = data.aws_ecr_repository.api.arn
   release                      = var.api_image_tag
   app_port                     = local.app_port
   cpu                          = var.api_cpu

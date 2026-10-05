@@ -215,7 +215,7 @@ resource "aws_cloudfront_distribution" "this" {
   #checkov:skip=CKV2_AWS_32:The response headers policy is attached to every behaviour.
   #checkov:skip=CKV_AWS_174:With a custom domain the distribution enforces TLSv1.2_2021; the default certificate only applies to domain-less environments.
   #checkov:skip=CKV2_AWS_42:A custom certificate is used whenever a domain is configured.
-  #checkov:skip=CKV2_AWS_47:The managed Log4j rule set is irrelevant to this stack; the common and known-bad-inputs rule sets are attached when WAF is enabled.
+  #checkov:skip=CKV2_AWS_47:AWSManagedRulesKnownBadInputsRuleSet, which contains the Log4JRCE rules, is attached when enable_waf is true.
   #checkov:skip=CKV_AWS_68:WAF is attached when enable_waf is true (enabled in production).
   enabled             = true
   comment             = "${var.name} console and API"
@@ -354,6 +354,30 @@ resource "aws_wafv2_web_acl" "this" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "${var.name}-throttle-authentication"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Drops requests from addresses AWS threat intelligence associates with bots and attacks
+  # before they reach the more expensive rule groups.
+  rule {
+    name     = "aws-ip-reputation"
+    priority = 5
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesAmazonIpReputationList"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.name}-aws-ip-reputation"
       sampled_requests_enabled   = true
     }
   }

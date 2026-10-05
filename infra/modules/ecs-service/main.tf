@@ -73,35 +73,62 @@ data "aws_iam_policy_document" "ecs_tasks_assume" {
   }
 }
 
-# Execution role: used by the ECS agent to pull the image, ship logs and inject secrets.
+# Execution role: used by the ECS agent to pull the image, ship logs and inject secrets. It is
+# scoped to this service's repository, log group and secrets instead of the account-wide
+# AmazonECSTaskExecutionRolePolicy.
 resource "aws_iam_role" "execution" {
   name               = "${var.name}-api-execution"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
 }
 
-resource "aws_iam_role_policy_attachment" "execution_managed" {
-  role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
+data "aws_iam_policy_document" "execution" {
+  statement {
+    sid       = "RegistryLogin"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
 
-data "aws_iam_policy_document" "execution_secrets" {
+  statement {
+    sid = "PullApiImage"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+    ]
+    resources = [var.image_repository_arn]
+  }
+
+  statement {
+    sid       = "WriteApiLogs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.api.arn}:*"]
+  }
+
   statement {
     sid       = "ReadApplicationSecrets"
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [var.database_secret_arn, aws_secretsmanager_secret.jwt_signing_key.arn]
   }
 
+  # The key also protects logs, the database and notifications; it may only be used to decrypt
+  # through Secrets Manager.
   statement {
     sid       = "DecryptApplicationSecrets"
     actions   = ["kms:Decrypt"]
     resources = [var.kms_key_arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${data.aws_region.current.region}.amazonaws.com"]
+    }
   }
 }
 
-resource "aws_iam_role_policy" "execution_secrets" {
-  name   = "read-application-secrets"
+resource "aws_iam_role_policy" "execution" {
+  name   = "launch-api-tasks"
   role   = aws_iam_role.execution.id
-  policy = data.aws_iam_policy_document.execution_secrets.json
+  policy = data.aws_iam_policy_document.execution.json
 }
 
 # Task role: what the application code itself may do. It only publishes incident notifications.
@@ -121,6 +148,12 @@ data "aws_iam_policy_document" "task" {
     sid       = "EncryptNotificationsForTopic"
     actions   = ["kms:GenerateDataKey*", "kms:Decrypt"]
     resources = [var.kms_key_arn]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["sns.${data.aws_region.current.region}.amazonaws.com"]
+    }
   }
 }
 
@@ -158,6 +191,11 @@ resource "aws_ecs_task_definition" "api" {
       readonlyRootFilesystem = true
       user                   = "10001:10001"
       stopTimeout            = 30
+
+      # The JVM runs unprivileged on an unprivileged port and needs no kernel capabilities.
+      linuxParameters = {
+        capabilities = { drop = ["ALL"] }
+      }
 
       portMappings = [
         { containerPort = var.app_port, protocol = "tcp" }
@@ -204,7 +242,7 @@ resource "aws_ecs_task_definition" "api" {
     }
   ])
 
-  depends_on = [aws_secretsmanager_secret_version.jwt_signing_key]
+  depends_on = [aws_secretsmanager_secret_version.jwt_signing_key, aws_iam_role_policy.execution]
 }
 
 resource "aws_ecs_service" "api" {
