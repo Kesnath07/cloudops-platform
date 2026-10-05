@@ -32,6 +32,8 @@ export function configureClient(next: ClientHooks): void {
 }
 
 const API_BASE = '/api/v1';
+/** Upper bound for a single request, so a stalled connection surfaces as an error instead of an endless spinner. */
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 export async function apiRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -49,8 +51,12 @@ export async function apiRequest<T>(method: string, path: string, body?: unknown
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-  } catch {
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === 'TimeoutError') {
+      throw new ApiError(0, 'Request timed out', 'The API did not respond in time. Retry in a moment.');
+    }
     throw new ApiError(0, 'Network error', 'The API could not be reached. Check your connection and retry.');
   }
 
@@ -63,7 +69,12 @@ export async function apiRequest<T>(method: string, path: string, body?: unknown
   if (response.status === 204) {
     return undefined as T;
   }
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    // A proxy or CDN answering with an HTML page instead of the API, e.g. during a deployment.
+    throw new ApiError(response.status, 'Unexpected response', 'The API returned a response that could not be read.');
+  }
 }
 
 async function toApiError(response: Response): Promise<ApiError> {

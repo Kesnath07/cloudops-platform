@@ -54,6 +54,23 @@ describe('apiRequest', () => {
     await expect(apiRequest('GET', '/overview')).rejects.toMatchObject({ status: 0, title: 'Network error' });
   });
 
+  it('bounds every request with a timeout and reports when it expires', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiRequest('GET', '/overview')).rejects.toMatchObject({ status: 0, title: 'Request timed out' });
+    expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('rejects a successful response that is not JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<!doctype html><html></html>', { status: 200, headers: { 'Content-Type': 'text/html' } })),
+    );
+
+    await expect(apiRequest('GET', '/overview')).rejects.toMatchObject({ status: 200, title: 'Unexpected response' });
+  });
+
   it('returns undefined for 204 responses', async () => {
     mockApi({ 'PUT /api/v1/users/me/password': { status: 204 } });
 
