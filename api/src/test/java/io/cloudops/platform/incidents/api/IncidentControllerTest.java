@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Instant;
 import java.util.List;
@@ -94,11 +95,28 @@ class IncidentControllerTest {
     }
 
     @Test
-    void unknownEnumValueIsABadRequest() {
-        assertThat(mvc.post().uri("/api/v1/incidents").with(as("OPERATOR"))
+    void unknownEnumValueIsReportedAgainstTheField() {
+        MvcTestResult result = mvc.post().uri("/api/v1/incidents").with(as("OPERATOR"))
                 .contentType(MediaType.APPLICATION_JSON).content("""
-                        {"workloadId":"%s","title":"x","severity":"CATASTROPHIC"}""".formatted(WORKLOAD_ID)))
-                .hasStatus(HttpStatus.BAD_REQUEST);
+                        {"workloadId":"%s","title":"x","severity":"CATASTROPHIC"}""".formatted(WORKLOAD_ID))
+                .exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.title").isEqualTo("Validation failed");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].field").isEqualTo("severity");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].message")
+                .isEqualTo("must be one of SEV1, SEV2, SEV3, SEV4");
+        verifyNoInteractions(incidentService);
+    }
+
+    @Test
+    void malformedJsonIsReportedWithoutParserDetails() {
+        assertThat(mvc.post().uri("/api/v1/incidents").with(as("OPERATOR"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson().extractingPath("$.detail").isEqualTo("The request body is missing or is not valid JSON.");
+        verifyNoInteractions(incidentService);
     }
 
     @Test

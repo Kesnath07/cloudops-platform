@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
@@ -21,9 +22,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.exc.MismatchedInputException;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Translates exceptions into RFC 9457 problem responses so that every error the API returns has
@@ -92,6 +97,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
+    /**
+     * A body that is valid JSON but holds a value of the wrong type (most often an unknown enum
+     * constant) is reported against the offending field, in the same shape as bean validation
+     * errors. Parser messages are not returned because they expose internal type names.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail body;
+        if (ex.getCause() instanceof MismatchedInputException mismatch && !mismatch.getPath().isEmpty()) {
+            body = problem(HttpStatus.BAD_REQUEST, "Validation failed", "One or more fields are invalid.");
+            body.setProperty("errors", List.of(Map.of(
+                    "field", fieldPath(mismatch.getPath()),
+                    "message", mismatchMessage(mismatch.getTargetType()))));
+        } else {
+            body = problem(HttpStatus.BAD_REQUEST, "Malformed request",
+                    "The request body is missing or is not valid JSON.");
+        }
+        return handleExceptionInternal(ex, body, headers, HttpStatus.BAD_REQUEST, request);
+    }
+
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -110,6 +136,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static Map<String, String> toFieldError(FieldError error) {
         return Map.of("field", error.getField(), "message", String.valueOf(error.getDefaultMessage()));
+    }
+
+    private static String fieldPath(List<JacksonException.Reference> path) {
+        StringBuilder field = new StringBuilder();
+        for (JacksonException.Reference reference : path) {
+            if (reference.getPropertyName() != null) {
+                field.append(field.isEmpty() ? "" : ".").append(reference.getPropertyName());
+            } else if (reference.getIndex() >= 0) {
+                field.append('[').append(reference.getIndex()).append(']');
+            }
+        }
+        return field.isEmpty() ? "body" : field.toString();
+    }
+
+    private static String mismatchMessage(Class<?> targetType) {
+        if (targetType != null && targetType.isEnum()) {
+            return "must be one of " + Arrays.stream(targetType.getEnumConstants())
+                    .map(constant -> ((Enum<?>) constant).name())
+                    .collect(Collectors.joining(", "));
+        }
+        return "has an invalid value or type";
     }
 
     private static ProblemDetail problem(HttpStatus status, String title, String detail) {
