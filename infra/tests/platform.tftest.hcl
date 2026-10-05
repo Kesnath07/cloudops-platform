@@ -141,6 +141,39 @@ run "domain_requires_hosted_zone" {
   expect_failures = [var.hosted_zone_id]
 }
 
+run "api_scaling_bounds_must_be_ordered" {
+  command = plan
+
+  variables {
+    api_min_count = 3
+    api_max_count = 2
+  }
+
+  expect_failures = [var.api_max_count]
+}
+
+run "api_task_size_must_be_valid_for_fargate" {
+  command = plan
+
+  variables {
+    api_cpu    = 1024
+    api_memory = 1024
+  }
+
+  expect_failures = [var.api_memory]
+}
+
+run "database_storage_ceiling_must_not_be_below_initial_size" {
+  command = plan
+
+  variables {
+    db_allocated_storage     = 50
+    db_max_allocated_storage = 20
+  }
+
+  expect_failures = [var.db_max_allocated_storage]
+}
+
 run "network_isolates_the_data_tier" {
   command = apply
 
@@ -226,6 +259,7 @@ run "database_is_private_encrypted_and_tls_only" {
     multi_az              = false
     backup_retention_days = 7
     deletion_protection   = true
+    log_retention_days    = 30
   }
 
   assert {
@@ -251,6 +285,16 @@ run "database_is_private_encrypted_and_tls_only" {
   assert {
     condition     = aws_db_instance.this.backup_retention_period == 7
     error_message = "Automated backups must be retained as configured."
+  }
+
+  assert {
+    condition = alltrue([
+      for export in aws_db_instance.this.enabled_cloudwatch_logs_exports :
+      aws_cloudwatch_log_group.exports[export].name == "/aws/rds/instance/cloudops-test-postgres/${export}"
+      && aws_cloudwatch_log_group.exports[export].retention_in_days == 30
+      && aws_cloudwatch_log_group.exports[export].kms_key_id == "arn:aws:kms:eu-west-1:123456789012:key/test"
+    ])
+    error_message = "Every exported database log must go to a Terraform-managed, encrypted log group with retention."
   }
 }
 

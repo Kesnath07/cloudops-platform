@@ -24,3 +24,7 @@ rule "terraform_documented_variables" {
 rule "terraform_documented_outputs" {
   enabled = true
 }
+
+rule "terraform_standard_module_structure" {
+  enabled = true
+}

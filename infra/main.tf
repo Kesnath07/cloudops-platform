@@ -71,6 +71,7 @@ module "database" {
   backup_retention_days = var.db_backup_retention_days
   deletion_protection   = var.deletion_protection
   password_version      = var.db_password_version
+  log_retention_days    = var.log_retention_days
 }
 
 module "load_balancer" {

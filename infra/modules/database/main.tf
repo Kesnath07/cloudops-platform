@@ -1,4 +1,13 @@
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  identifier = "${var.name}-postgres"
+
+  # RDS creates these groups on first export with no retention and no encryption; owning them
+  # here applies the environment's retention period and key instead.
+  log_exports = toset(["postgresql", "upgrade"])
+}
 
 # The master password is generated as an ephemeral value and passed only to write-only arguments,
 # so it never appears in the plan or the Terraform state. Bumping password_version rotates it:
@@ -86,12 +95,20 @@ resource "aws_iam_role" "monitoring" {
 
 resource "aws_iam_role_policy_attachment" "monitoring" {
   role       = aws_iam_role.monitoring.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
+resource "aws_cloudwatch_log_group" "exports" {
+  for_each = local.log_exports
+
+  name              = "/aws/rds/instance/${local.identifier}/${each.key}"
+  retention_in_days = var.log_retention_days
+  kms_key_id        = var.kms_key_arn
 }
 
 resource "aws_db_instance" "this" {
   #checkov:skip=CKV_AWS_161:The API authenticates with a Secrets Manager credential; IAM database auth is not used.
-  identifier     = "${var.name}-postgres"
+  identifier     = local.identifier
   engine         = "postgres"
   engine_version = var.engine_version
   instance_class = var.instance_class
@@ -119,14 +136,14 @@ resource "aws_db_instance" "this" {
   copy_tags_to_snapshot     = true
   deletion_protection       = var.deletion_protection
   skip_final_snapshot       = !var.deletion_protection
-  final_snapshot_identifier = "${var.name}-postgres-final"
+  final_snapshot_identifier = "${local.identifier}-final"
 
   auto_minor_version_upgrade      = true
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+  enabled_cloudwatch_logs_exports = sort(local.log_exports)
   performance_insights_enabled    = true
   performance_insights_kms_key_id = var.kms_key_arn
   monitoring_interval             = 60
   monitoring_role_arn             = aws_iam_role.monitoring.arn
 
-  depends_on = [aws_iam_role_policy_attachment.monitoring]
+  depends_on = [aws_iam_role_policy_attachment.monitoring, aws_cloudwatch_log_group.exports]
 }

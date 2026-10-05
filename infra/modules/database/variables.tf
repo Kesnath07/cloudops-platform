@@ -72,6 +72,11 @@ variable "password_version" {
   default     = 1
 }
 
+variable "log_retention_days" {
+  description = "Retention of the PostgreSQL and upgrade logs exported to CloudWatch."
+  type        = number
+}
+
 variable "secret_recovery_window_days" {
   description = "Days a deleted credentials secret can still be restored (0 deletes immediately)."
   type        = number
