@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { users } from '../api/endpoints';
 import type { Role } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { ROLES } from '../auth/roles';
 import { ErrorBanner, Loading } from '../components/Feedback';
 import { Pager } from '../components/Pager';
 import { useAction } from '../hooks/useAction';
 import { useApi } from '../hooks/useApi';
 import { formatDateTime } from '../lib/format';
-
-const ROLES: Role[] = ['VIEWER', 'OPERATOR', 'ADMIN'];
 
 export function UsersPage() {
   const { user: currentUser } = useAuth();

@@ -10,6 +10,7 @@ import { useAction } from '../hooks/useAction';
 import { useApi } from '../hooks/useApi';
 import { formatDateTime, humanize, optionalField, requiredField } from '../lib/format';
 import { nextStatuses } from '../lib/incidents';
+import { SEVERITIES } from '../lib/options';
 
 export function IncidentPage() {
   const { incidentId = '' } = useParams();
@@ -102,8 +103,7 @@ export function IncidentPage() {
                 Change severity
                 <select name="severity" defaultValue="">
                   <option value="">Keep {details.severity}</option>
-                  {(['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const)
-                    .filter((severity) => severity !== details.severity)
+                  {SEVERITIES.filter((severity) => severity !== details.severity)
                     .map((severity) => (
                       <option key={severity} value={severity}>
                         {severity}

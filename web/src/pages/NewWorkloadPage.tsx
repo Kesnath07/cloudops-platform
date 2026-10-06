@@ -6,6 +6,7 @@ import { ErrorBanner, Loading } from '../components/Feedback';
 import { useAction } from '../hooks/useAction';
 import { useApi } from '../hooks/useApi';
 import { optionalField, requiredField } from '../lib/format';
+import { CRITICALITY_LABELS, optionsOf } from '../lib/options';
 
 export function NewWorkloadPage() {
   const navigate = useNavigate();
@@ -71,9 +72,11 @@ export function NewWorkloadPage() {
           <label>
             Criticality
             <select name="criticality" defaultValue="MEDIUM">
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
+              {optionsOf(CRITICALITY_LABELS).map((criticality) => (
+                <option key={criticality} value={criticality}>
+                  {CRITICALITY_LABELS[criticality]}
+                </option>
+              ))}
             </select>
           </label>
           <label>

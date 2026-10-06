@@ -11,6 +11,7 @@ import { Pager } from '../components/Pager';
 import { useAction } from '../hooks/useAction';
 import { useApi } from '../hooks/useApi';
 import { formatDateTime, humanize, optionalField, requiredField } from '../lib/format';
+import { ENVIRONMENT_LABELS, OUTCOME_LABELS, optionsOf } from '../lib/options';
 
 export function WorkloadPage() {
   const { workloadId = '' } = useParams();
@@ -121,8 +122,8 @@ export function WorkloadPage() {
                     {deployment.version}
                     {deployment.commitSha && <div className="muted small mono">{deployment.commitSha.slice(0, 12)}</div>}
                   </td>
-                  <td>{humanize(deployment.environment)}</td>
-                  <td>{humanize(deployment.outcome)}</td>
+                  <td>{ENVIRONMENT_LABELS[deployment.environment]}</td>
+                  <td>{OUTCOME_LABELS[deployment.outcome]}</td>
                   <td>{formatDateTime(deployment.deployedAt)}</td>
                   <td>{deployment.deployedByName}</td>
                 </tr>
@@ -140,9 +141,11 @@ export function WorkloadPage() {
               <label>
                 Environment
                 <select name="environment" defaultValue="PRODUCTION">
-                  <option value="DEVELOPMENT">Development</option>
-                  <option value="STAGING">Staging</option>
-                  <option value="PRODUCTION">Production</option>
+                  {optionsOf(ENVIRONMENT_LABELS).map((environment) => (
+                    <option key={environment} value={environment}>
+                      {ENVIRONMENT_LABELS[environment]}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -156,9 +159,11 @@ export function WorkloadPage() {
               <label>
                 Outcome
                 <select name="outcome" defaultValue="SUCCEEDED">
-                  <option value="SUCCEEDED">Succeeded</option>
-                  <option value="FAILED">Failed</option>
-                  <option value="ROLLED_BACK">Rolled back</option>
+                  {optionsOf(OUTCOME_LABELS).map((outcome) => (
+                    <option key={outcome} value={outcome}>
+                      {OUTCOME_LABELS[outcome]}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="wide">

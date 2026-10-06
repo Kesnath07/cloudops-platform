@@ -172,6 +172,12 @@ each state the reason they do not apply.
   module only through its `application` services or `events`.
 - **Errors.** Throw `ResourceNotFoundException`, `ConflictException` or
   `BusinessRuleViolationException`; `ApiExceptionHandler` turns them into problem responses.
+  When a uniqueness check precedes an insert, use `saveAndFlush` and translate
+  `DataIntegrityViolationException` into the same `ConflictException`, so a concurrent duplicate
+  gets the specific message rather than a generic one at commit.
+- **Lists.** Bound `page` and `size` with `Paging.MAX_PAGE` and `Paging.MAX_SIZE`, and sort on a
+  unique key (add the identifier or slug as a tie-breaker) so pages are stable. Add a matching index
+  in a migration when a new ordering is introduced.
 - **Authorisation.** Annotate mutating endpoints with `@PreAuthorize("hasRole('OPERATOR')")` or
   `'ADMIN'`; declare an `Actor` parameter to get the caller.
 - **Schema changes.** Add a new `V<n>__description.sql` under `src/main/resources/db/migration`.
@@ -183,7 +189,10 @@ each state the reason they do not apply.
 ## Working on the console
 
 - API calls go through `src/api/endpoints.ts`; add the matching type in `src/api/types.ts`.
-- Use `useApi(key, loader)` for reads and `useAction(fn)` for writes; show `ErrorBanner` for errors.
+- Use `useApi(key, loader)` for reads and `useAction(fn)` for writes; show `ErrorBanner` for errors
+  and pass `onRetry` for reads. Do not render a form whose options failed to load.
+- Build selects for API enumerations from the typed label maps in `src/lib/options.ts`; the compiler
+  then flags any value added to `src/api/types.ts` that has no label.
 - Gate UI on roles with `hasRole(user.role, 'OPERATOR')`, but remember the API is the authority.
 - Styles are plain CSS with custom properties in `src/styles.css` (light and dark schemes).
 

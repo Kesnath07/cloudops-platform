@@ -6,6 +6,7 @@ import { ErrorBanner, Loading } from '../components/Feedback';
 import { useAction } from '../hooks/useAction';
 import { useApi } from '../hooks/useApi';
 import { optionalField, requiredField } from '../lib/format';
+import { SEVERITIES, SEVERITY_DESCRIPTIONS } from '../lib/options';
 
 export function NewIncidentPage() {
   const navigate = useNavigate();
@@ -65,10 +66,11 @@ export function NewIncidentPage() {
         <label>
           Severity
           <select name="severity" defaultValue="SEV3">
-            <option value="SEV1">SEV1 · complete outage</option>
-            <option value="SEV2">SEV2 · major impact</option>
-            <option value="SEV3">SEV3 · partial degradation</option>
-            <option value="SEV4">SEV4 · minor</option>
+            {SEVERITIES.map((severity) => (
+              <option key={severity} value={severity}>
+                {severity} · {SEVERITY_DESCRIPTIONS[severity]}
+              </option>
+            ))}
           </select>
         </label>
         <label>
