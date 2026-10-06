@@ -7,6 +7,7 @@ import io.cloudops.platform.identity.application.UserAdministrationService;
 import io.cloudops.platform.identity.application.UserView;
 import io.cloudops.platform.shared.security.Actor;
 import io.cloudops.platform.shared.web.PageResponse;
+import io.cloudops.platform.shared.web.Paging;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -54,8 +55,8 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all user accounts")
-    public PageResponse<UserView> list(@RequestParam(defaultValue = "0") @Min(0) int page,
-                                       @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size) {
+    public PageResponse<UserView> list(@RequestParam(defaultValue = "0") @Min(0) @Max(Paging.MAX_PAGE) int page,
+                                       @RequestParam(defaultValue = "25") @Min(1) @Max(Paging.MAX_SIZE) int size) {
         return administrationService.list(page, size);
     }
 

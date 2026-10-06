@@ -5,6 +5,7 @@ import io.cloudops.platform.catalog.application.UpdateWorkloadCommand;
 import io.cloudops.platform.catalog.application.WorkloadService;
 import io.cloudops.platform.catalog.application.WorkloadView;
 import io.cloudops.platform.shared.web.PageResponse;
+import io.cloudops.platform.shared.web.Paging;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,8 +42,8 @@ public class WorkloadController {
     @GetMapping
     @Operation(summary = "List workloads, optionally filtered by owning team")
     public PageResponse<WorkloadView> list(@RequestParam(required = false) UUID teamId,
-                                           @RequestParam(defaultValue = "0") @Min(0) int page,
-                                           @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size) {
+                                           @RequestParam(defaultValue = "0") @Min(0) @Max(Paging.MAX_PAGE) int page,
+                                           @RequestParam(defaultValue = "25") @Min(1) @Max(Paging.MAX_SIZE) int size) {
         return workloadService.list(teamId, page, size);
     }
 

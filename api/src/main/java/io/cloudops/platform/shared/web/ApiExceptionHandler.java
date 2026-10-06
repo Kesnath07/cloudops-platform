@@ -5,6 +5,7 @@ import io.cloudops.platform.shared.error.ConflictException;
 import io.cloudops.platform.shared.error.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.exc.MismatchedInputException;
@@ -28,6 +30,7 @@ import tools.jackson.databind.exc.MismatchedInputException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -118,6 +121,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, body, headers, HttpStatus.BAD_REQUEST, request);
     }
 
+    /**
+     * A path variable or query parameter that cannot be converted (an unknown status filter, a
+     * malformed identifier) is reported against the parameter, like any other validation error.
+     * The default response would echo the raw conversion failure without naming the field.
+     */
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        String parameter = ex instanceof MethodArgumentTypeMismatchException argument
+                ? argument.getName() : ex.getPropertyName();
+        ProblemDetail body = problem(HttpStatus.BAD_REQUEST, "Validation failed",
+                "One or more request parameters are invalid.");
+        body.setProperty("errors", List.of(Map.of(
+                "field", parameter == null ? "parameter" : parameter,
+                "message", mismatchMessage(ex.getRequiredType()))));
+        return handleExceptionInternal(ex, body, headers, HttpStatus.BAD_REQUEST, request);
+    }
+
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -155,6 +176,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             return "must be one of " + Arrays.stream(targetType.getEnumConstants())
                     .map(constant -> ((Enum<?>) constant).name())
                     .collect(Collectors.joining(", "));
+        }
+        if (UUID.class.equals(targetType)) {
+            return "must be a valid UUID";
+        }
+        if (targetType != null && (Number.class.isAssignableFrom(targetType)
+                || targetType == int.class || targetType == long.class)) {
+            return "must be a number";
         }
         return "has an invalid value or type";
     }

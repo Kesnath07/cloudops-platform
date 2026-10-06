@@ -8,6 +8,7 @@ import io.cloudops.platform.incidents.application.PostIncidentUpdateCommand;
 import io.cloudops.platform.incidents.domain.IncidentStatus;
 import io.cloudops.platform.shared.security.Actor;
 import io.cloudops.platform.shared.web.PageResponse;
+import io.cloudops.platform.shared.web.Paging;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,8 +42,8 @@ public class IncidentController {
     @Operation(summary = "List incidents, newest first, optionally filtered by status and workload")
     public PageResponse<IncidentView> list(@RequestParam(required = false) IncidentStatus status,
                                            @RequestParam(required = false) UUID workloadId,
-                                           @RequestParam(defaultValue = "0") @Min(0) int page,
-                                           @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+                                           @RequestParam(defaultValue = "0") @Min(0) @Max(Paging.MAX_PAGE) int page,
+                                           @RequestParam(defaultValue = "20") @Min(1) @Max(Paging.MAX_SIZE) int size) {
         return incidentService.list(status, workloadId, page, size);
     }
 
