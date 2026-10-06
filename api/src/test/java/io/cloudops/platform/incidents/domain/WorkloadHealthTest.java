@@ -53,4 +53,12 @@ class WorkloadHealthTest {
         assertThat(Severity.SEV2.isMoreSevereThan(Severity.SEV3)).isTrue();
         assertThat(Severity.SEV2.isMoreSevereThan(Severity.SEV2)).isFalse();
     }
+
+    @Test
+    void healthIsOrderedFromOperationalToMajorOutage() {
+        assertThat(WorkloadHealth.MAJOR_OUTAGE.isWorseThan(WorkloadHealth.PARTIAL_OUTAGE)).isTrue();
+        assertThat(WorkloadHealth.DEGRADED.isWorseThan(WorkloadHealth.OPERATIONAL)).isTrue();
+        assertThat(WorkloadHealth.DEGRADED.isWorseThan(WorkloadHealth.DEGRADED)).isFalse();
+        assertThat(WorkloadHealth.OPERATIONAL.isWorseThan(WorkloadHealth.DEGRADED)).isFalse();
+    }
 }

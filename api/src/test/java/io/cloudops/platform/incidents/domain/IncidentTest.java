@@ -108,4 +108,14 @@ class IncidentTest {
     void lifecycleTransitions(IncidentStatus from, IncidentStatus to, boolean allowed) {
         assertThat(from.canTransitionTo(to)).isEqualTo(allowed);
     }
+
+    @Test
+    void blankSummaryIsStoredAsAbsentAndUpdatesAreStripped() {
+        Incident incident = Incident.open(WORKLOAD, "Checkout latency spike", "   ", Severity.SEV3, ACTOR, "Dana", OPENED);
+
+        incident.postUpdate("  Rolled back the release \n", null, null, ACTOR, "Dana", OPENED.plusSeconds(60));
+
+        assertThat(incident.getSummary()).isNull();
+        assertThat(incident.getTimeline().getLast().getMessage()).isEqualTo("Rolled back the release");
+    }
 }

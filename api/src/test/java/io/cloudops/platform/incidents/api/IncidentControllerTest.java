@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static io.cloudops.platform.support.TestTokens.as;
@@ -124,6 +125,48 @@ class IncidentControllerTest {
         assertThat(mvc.get().uri("/api/v1/incidents?size=500").with(as("VIEWER")))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.errors[0].field").isEqualTo("size");
+    }
+
+    @Test
+    void pageIndexIsBoundedSoOffsetsCannotOverflow() {
+        assertThat(mvc.get().uri("/api/v1/incidents?page=50000000&size=100").with(as("VIEWER")))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errors[0].field").isEqualTo("page");
+        verifyNoInteractions(incidentService);
+    }
+
+    @Test
+    void unknownStatusFilterIsReportedAgainstTheParameter() {
+        MvcTestResult result = mvc.get().uri("/api/v1/incidents?status=BROKEN").with(as("VIEWER")).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
+                .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .bodyJson().extractingPath("$.title").isEqualTo("Validation failed");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].field").isEqualTo("status");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].message")
+                .isEqualTo("must be one of OPEN, MITIGATED, RESOLVED");
+        verifyNoInteractions(incidentService);
+    }
+
+    @Test
+    void malformedIdentifierIsReportedAgainstThePathVariable() {
+        MvcTestResult result = mvc.get().uri("/api/v1/incidents/not-a-uuid").with(as("VIEWER")).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errors[0].field").isEqualTo("incidentId");
+        assertThat(result).bodyJson().extractingPath("$.errors[0].message").isEqualTo("must be a valid UUID");
+        verifyNoInteractions(incidentService);
+    }
+
+    @Test
+    void wronglyTypedBodyFieldIsReportedWithAHint() {
+        assertThat(mvc.post().uri("/api/v1/incidents").with(as("OPERATOR"))
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"workloadId":"not-a-uuid","title":"x","severity":"SEV2"}"""))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.errors[0]")
+                .isEqualTo(Map.of("field", "workloadId", "message", "must be a valid UUID"));
+        verifyNoInteractions(incidentService);
     }
 
     @Test

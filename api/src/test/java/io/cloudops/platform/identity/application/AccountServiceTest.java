@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -100,5 +101,15 @@ class AccountServiceTest {
         assertThat(new RegisterAccountCommand("a@b.io", "A", "super-secret-pass").toString()).doesNotContain("super-secret-pass");
         assertThat(new TokenRequest("a@b.io", "super-secret-pass").toString()).doesNotContain("super-secret-pass");
         assertThat(new ChangePasswordCommand("old-secret-pass", "new-secret-pass").toString()).doesNotContain("secret");
+    }
+
+    @Test
+    void concurrentRegistrationOfTheSameEmailIsAConflict() {
+        when(accounts.saveAndFlush(any(UserAccount.class)))
+                .thenThrow(new DataIntegrityViolationException("uq_user_accounts_email"));
+
+        assertThatThrownBy(() -> service.register(new RegisterAccountCommand("sam@example.org", "Sam", "correct-horse-battery")))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("An account with this email address already exists");
     }
 }
