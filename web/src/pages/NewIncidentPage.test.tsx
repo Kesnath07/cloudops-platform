@@ -107,11 +107,26 @@ describe('NewIncidentPage', () => {
     expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0);
   });
 
-  it('reports when the workload list cannot be loaded', async () => {
+  it('reports when the workload list cannot be loaded and recovers on retry', async () => {
     signInAs('OPERATOR');
-    mockApi({ 'GET /api/v1/overview': { status: 503, body: { title: 'Service Unavailable', detail: 'Try again shortly.' } } });
+    let attempts = 0;
+    mockApi({
+      'GET /api/v1/overview': () => {
+        attempts += 1;
+        return attempts === 1
+          ? { status: 503, body: { title: 'Service Unavailable', detail: 'Try again shortly.' } }
+          : { body: OVERVIEW };
+      },
+    });
     renderNewIncident();
+    const user = userEvent.setup();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Service Unavailable Try again shortly.');
+    expect(screen.queryByLabelText('Affected workload')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByLabelText('Affected workload')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Search API' })).toBeInTheDocument();
   });
 });
