@@ -16,11 +16,21 @@ const FILTERS: { label: string; value: IncidentStatus | '' }[] = [
   { label: 'Resolved', value: 'RESOLVED' },
 ];
 
+/** The URL can be edited by hand; unknown values fall back to the defaults instead of failing the request. */
+function parseStatus(value: string | null): IncidentStatus | '' {
+  return FILTERS.find((filter) => filter.value === value)?.value ?? '';
+}
+
+function parsePage(value: string | null): number {
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page > 0 ? page : 0;
+}
+
 export function IncidentsPage() {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
-  const status = (params.get('status') ?? '') as IncidentStatus | '';
-  const page = Number(params.get('page') ?? '0');
+  const status = parseStatus(params.get('status'));
+  const page = parsePage(params.get('page'));
   const list = useApi(`incidents-${status}-${page}`, () =>
     incidents.list({ status: status || undefined, page }),
   );

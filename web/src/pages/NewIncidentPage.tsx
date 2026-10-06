@@ -30,11 +30,20 @@ export function NewIncidentPage() {
   if (overview.loading && !overview.data) {
     return <Loading />;
   }
+  if (!overview.data) {
+    // Without the workload list the affected-workload field would be empty and unusable.
+    return (
+      <section className="panel narrow">
+        <h1>Open incident</h1>
+        <ErrorBanner error={overview.error} onRetry={overview.reload} />
+      </section>
+    );
+  }
 
   return (
     <section className="panel narrow">
       <h1>Open incident</h1>
-      <ErrorBanner error={overview.error ?? open.error} />
+      <ErrorBanner error={open.error} />
       <form onSubmit={handleSubmit} className="form">
         <label>
           Affected workload
@@ -42,7 +51,7 @@ export function NewIncidentPage() {
             <option value="" disabled>
               Select a workload
             </option>
-            {overview.data?.map((row) => (
+            {overview.data.map((row) => (
               <option key={row.workload.id} value={row.workload.id}>
                 {row.workload.name}
               </option>

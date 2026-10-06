@@ -25,9 +25,11 @@ export function UsersPage() {
   return (
     <section className="panel">
       <h1>Users</h1>
-      <ErrorBanner error={list.error ?? changeRole.error} onRetry={list.reload} />
+      <ErrorBanner error={list.error} onRetry={list.reload} />
+      <ErrorBanner error={changeRole.error} />
       {list.loading && !list.data && <Loading />}
-      {list.data && (
+      {list.data?.items.length === 0 && <p className="muted">No user accounts on this page.</p>}
+      {list.data && list.data.items.length > 0 && (
         <table>
           <thead>
             <tr>

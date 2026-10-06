@@ -84,7 +84,8 @@ export function WorkloadPage() {
 
       <section className="panel">
         <h2>Incidents</h2>
-        <ErrorBanner error={activeIncidents.error} />
+        <ErrorBanner error={activeIncidents.error} onRetry={activeIncidents.reload} />
+        {activeIncidents.loading && !activeIncidents.data && <Loading label="Loading incidents…" />}
         {activeIncidents.data?.items.length === 0 && <p className="muted">No incidents recorded.</p>}
         <ul className="list">
           {activeIncidents.data?.items.map((incident) => (
@@ -99,7 +100,8 @@ export function WorkloadPage() {
 
       <section className="panel">
         <h2>Deployment history</h2>
-        <ErrorBanner error={history.error} />
+        <ErrorBanner error={history.error} onRetry={history.reload} />
+        {history.loading && !history.data && <Loading label="Loading deployments…" />}
         {history.data && history.data.items.length === 0 && <p className="muted">No deployments recorded.</p>}
         {history.data && history.data.items.length > 0 && (
           <table>

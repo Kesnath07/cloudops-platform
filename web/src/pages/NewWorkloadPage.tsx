@@ -32,12 +32,21 @@ export function NewWorkloadPage() {
   if (teamList.loading && !teamList.data) {
     return <Loading />;
   }
+  if (!teamList.data) {
+    // Without the team list the owning-team field would be empty and every submission rejected.
+    return (
+      <section className="panel narrow">
+        <h1>Register workload</h1>
+        <ErrorBanner error={teamList.error} onRetry={teamList.reload} />
+      </section>
+    );
+  }
 
   return (
     <section className="panel narrow">
       <h1>Register workload</h1>
-      <ErrorBanner error={teamList.error ?? create.error} />
-      {teamList.data?.length === 0 ? (
+      <ErrorBanner error={create.error} />
+      {teamList.data.length === 0 ? (
         <p>An administrator must create a team before workloads can be registered.</p>
       ) : (
         <form onSubmit={handleSubmit} className="form">
@@ -52,7 +61,7 @@ export function NewWorkloadPage() {
           <label>
             Owning team
             <select name="teamId" required>
-              {teamList.data?.map((team) => (
+              {teamList.data.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
