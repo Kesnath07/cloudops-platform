@@ -1,5 +1,6 @@
 package io.cloudops.platform.identity.domain;
 
+import io.cloudops.platform.shared.domain.Text;
 import io.cloudops.platform.shared.domain.VersionedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,7 +33,7 @@ public class UserAccount extends VersionedEntity {
 
     public UserAccount(String email, String displayName, String passwordHash, Role role) {
         this.email = normalizeEmail(email);
-        this.displayName = Objects.requireNonNull(displayName).strip();
+        this.displayName = Text.required(displayName);
         this.passwordHash = Objects.requireNonNull(passwordHash);
         this.role = Objects.requireNonNull(role);
     }

@@ -1,5 +1,6 @@
 package io.cloudops.platform.catalog.domain;
 
+import io.cloudops.platform.shared.domain.Text;
 import io.cloudops.platform.shared.domain.VersionedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -51,11 +52,11 @@ public class Workload extends VersionedEntity {
     }
 
     public final void update(WorkloadDetails details, Team owningTeam) {
-        this.name = details.name().strip();
-        this.description = details.description();
+        this.name = Text.required(details.name());
+        this.description = Text.optional(details.description());
         this.criticality = Objects.requireNonNull(details.criticality());
-        this.repositoryUrl = details.repositoryUrl();
-        this.runbookUrl = details.runbookUrl();
+        this.repositoryUrl = Text.optional(details.repositoryUrl());
+        this.runbookUrl = Text.optional(details.runbookUrl());
         this.team = Objects.requireNonNull(owningTeam);
     }
 

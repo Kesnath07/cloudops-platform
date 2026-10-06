@@ -23,8 +23,9 @@ import java.util.UUID;
 public class OverviewService {
 
     private static final Comparator<WorkloadOverview> MOST_IMPACTED_FIRST = Comparator
-            .comparing((WorkloadOverview row) -> row.health().ordinal()).reversed()
-            .thenComparing(row -> row.workload().name());
+            .comparing(WorkloadOverview::health, Comparator.reverseOrder())
+            .thenComparing(row -> row.workload().name())
+            .thenComparing(row -> row.workload().slug());
 
     private final WorkloadService workloadService;
     private final IncidentService incidentService;

@@ -3,7 +3,7 @@ package io.cloudops.platform.incidents.domain;
 import java.util.Collection;
 
 /**
- * Health of a workload as implied by its active incidents.
+ * Health of a workload as implied by its active incidents, declared from least to most impacted.
  */
 public enum WorkloadHealth {
     OPERATIONAL,
@@ -19,11 +19,15 @@ public enum WorkloadHealth {
         WorkloadHealth worst = OPERATIONAL;
         for (IncidentSignal incident : activeIncidents) {
             WorkloadHealth impact = impactOf(incident);
-            if (impact.ordinal() > worst.ordinal()) {
+            if (impact.isWorseThan(worst)) {
                 worst = impact;
             }
         }
         return worst;
+    }
+
+    public boolean isWorseThan(WorkloadHealth other) {
+        return compareTo(other) > 0;
     }
 
     private static WorkloadHealth impactOf(IncidentSignal incident) {

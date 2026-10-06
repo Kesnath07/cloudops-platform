@@ -1,5 +1,6 @@
 package io.cloudops.platform.catalog.domain;
 
+import io.cloudops.platform.shared.domain.Text;
 import io.cloudops.platform.shared.domain.VersionedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,9 +33,9 @@ public class Team extends VersionedEntity {
     }
 
     public final void rename(String newName, String newDescription, String newContactEmail) {
-        this.name = Objects.requireNonNull(newName).strip();
-        this.description = newDescription;
-        this.contactEmail = newContactEmail;
+        this.name = Text.required(newName);
+        this.description = Text.optional(newDescription);
+        this.contactEmail = Text.optional(newContactEmail);
     }
 
     public String getSlug() {

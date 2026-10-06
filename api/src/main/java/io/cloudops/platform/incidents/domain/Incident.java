@@ -1,5 +1,6 @@
 package io.cloudops.platform.incidents.domain;
 
+import io.cloudops.platform.shared.domain.Text;
 import io.cloudops.platform.shared.domain.VersionedEntity;
 import io.cloudops.platform.shared.error.ConflictException;
 import jakarta.persistence.CascadeType;
@@ -68,8 +69,8 @@ public class Incident extends VersionedEntity {
     private Incident(UUID workloadId, String title, String summary, Severity severity,
                      UUID openedById, String openedByName, Instant openedAt) {
         this.workloadId = Objects.requireNonNull(workloadId);
-        this.title = Objects.requireNonNull(title).strip();
-        this.summary = summary;
+        this.title = Text.required(title);
+        this.summary = Text.optional(summary);
         this.severity = Objects.requireNonNull(severity);
         this.status = IncidentStatus.OPEN;
         this.openedById = Objects.requireNonNull(openedById);
@@ -103,7 +104,7 @@ public class Incident extends VersionedEntity {
         if (requestedSeverity != null) {
             severity = requestedSeverity;
         }
-        timeline.add(new IncidentUpdate(this, Objects.requireNonNull(message).strip(), status, severity,
+        timeline.add(new IncidentUpdate(this, Text.required(message), status, severity,
                 actorId, actorName, now));
     }
 

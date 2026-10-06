@@ -1,6 +1,7 @@
 package io.cloudops.platform.deployments.domain;
 
 import io.cloudops.platform.shared.domain.BaseEntity;
+import io.cloudops.platform.shared.domain.Text;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -61,7 +62,7 @@ public class Deployment extends BaseEntity {
         this.releaseVersion = Objects.requireNonNull(releaseVersion);
         this.commitSha = commitSha;
         this.outcome = Objects.requireNonNull(outcome);
-        this.notes = notes;
+        this.notes = Text.optional(notes);
         this.deployedById = Objects.requireNonNull(deployedById);
         this.deployedByName = Objects.requireNonNull(deployedByName);
         this.deployedAt = Objects.requireNonNull(deployedAt);
