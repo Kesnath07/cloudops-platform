@@ -26,7 +26,8 @@ import java.util.stream.Collectors;
 public class WorkloadService {
 
     private static final Logger log = LoggerFactory.getLogger(WorkloadService.class);
-    private static final Sort BY_NAME = Sort.by("name");
+    /** Names are not unique; the slug breaks ties so pages are stable. */
+    private static final Sort BY_NAME = Sort.by("name", "slug");
 
     private final WorkloadRepository workloads;
     private final TeamService teamService;
@@ -42,7 +43,13 @@ public class WorkloadService {
             throw new ConflictException("A workload with slug '" + command.slug() + "' already exists");
         }
         Team team = teamService.load(command.teamId());
-        Workload workload = workloads.save(new Workload(command.slug(), command.details(), team));
+        Workload workload;
+        try {
+            // Flushing surfaces a concurrent registration of the same slug here, as a conflict.
+            workload = workloads.saveAndFlush(new Workload(command.slug(), command.details(), team));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("A workload with slug '" + command.slug() + "' already exists");
+        }
         log.info("Registered workload {} ({}) for team {}", workload.getSlug(), workload.getId(), team.getSlug());
         return WorkloadView.of(workload);
     }

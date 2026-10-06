@@ -36,6 +36,8 @@ import java.util.stream.Collectors;
 public class IncidentService {
 
     private static final Logger log = LoggerFactory.getLogger(IncidentService.class);
+    /** Identifiers break ties between incidents opened in the same instant, keeping pages stable. */
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "openedAt", "id");
 
     private final IncidentRepository incidents;
     private final WorkloadService workloadService;
@@ -93,7 +95,7 @@ public class IncidentService {
     @Transactional(readOnly = true)
     public PageResponse<IncidentView> list(IncidentStatus status, UUID workloadId, int page, int size) {
         Page<Incident> result = incidents.findAll(filter(status, workloadId),
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "openedAt")));
+                PageRequest.of(page, size, NEWEST_FIRST));
         Map<UUID, WorkloadRef> workloads = workloadService.references(
                 result.stream().map(Incident::getWorkloadId).collect(Collectors.toSet()));
         return PageResponse.from(result, incident -> IncidentView.of(incident, workloads.get(incident.getWorkloadId())));

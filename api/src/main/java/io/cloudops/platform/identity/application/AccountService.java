@@ -8,6 +8,7 @@ import io.cloudops.platform.shared.error.ConflictException;
 import io.cloudops.platform.shared.error.ResourceNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,8 +42,14 @@ public class AccountService {
             throw new ConflictException("An account with this email address already exists");
         }
         Role role = properties.isBootstrapAdmin(email) ? Role.ADMIN : Role.VIEWER;
-        UserAccount account = accounts.save(new UserAccount(
-                email, command.displayName(), hash(command.password()), role));
+        UserAccount account;
+        try {
+            // Flushing surfaces a concurrent registration of the same address here, as a conflict.
+            account = accounts.saveAndFlush(new UserAccount(
+                    email, command.displayName(), hash(command.password()), role));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("An account with this email address already exists");
+        }
         log.info("Registered account {} with role {}", account.getId(), role);
         return UserView.of(account);
     }

@@ -40,12 +40,12 @@ class AccountServiceTest {
 
     @Test
     void registersNewAccountsAsViewersWithNormalizedEmailAndHashedPassword() {
-        when(accounts.save(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserView user = service.register(new RegisterAccountCommand("  Sam@Example.ORG ", "Sam", "correct-horse-battery"));
 
         ArgumentCaptor<UserAccount> saved = ArgumentCaptor.forClass(UserAccount.class);
-        verify(accounts).save(saved.capture());
+        verify(accounts).saveAndFlush(saved.capture());
         assertThat(user.email()).isEqualTo("sam@example.org");
         assertThat(user.role()).isEqualTo(Role.VIEWER);
         assertThat(saved.getValue().getPasswordHash())
@@ -55,7 +55,7 @@ class AccountServiceTest {
 
     @Test
     void bootstrapAdminEmailReceivesAdminRole() {
-        when(accounts.save(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UserView user = service.register(new RegisterAccountCommand("admin@example.org", "Ops Lead", "correct-horse-battery"));
 
@@ -68,7 +68,7 @@ class AccountServiceTest {
 
         assertThatThrownBy(() -> service.register(new RegisterAccountCommand("SAM@example.org", "Sam", "correct-horse-battery")))
                 .isInstanceOf(ConflictException.class);
-        verify(accounts, never()).save(any());
+        verify(accounts, never()).saveAndFlush(any());
     }
 
     @Test

@@ -15,8 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,10 @@ import java.util.stream.Collectors;
 public class DeploymentService {
 
     private static final Logger log = LoggerFactory.getLogger(DeploymentService.class);
+    /** Identifiers break ties between deployments recorded for the same instant, keeping pages stable. */
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "deployedAt", "id");
+    private static final Comparator<DeploymentView> CHRONOLOGICAL =
+            Comparator.comparing(DeploymentView::deployedAt).thenComparing(DeploymentView::id);
 
     private final DeploymentRepository deployments;
     private final WorkloadService workloadService;
@@ -57,18 +63,22 @@ public class DeploymentService {
     public PageResponse<DeploymentView> history(UUID workloadId, DeploymentEnvironment environment,
                                                 int page, int size) {
         workloadService.reference(workloadId);
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "deployedAt"));
+        Pageable pageable = PageRequest.of(page, size, NEWEST_FIRST);
         return PageResponse.from(environment == null
                 ? deployments.findByWorkloadId(workloadId, pageable)
                 : deployments.findByWorkloadIdAndEnvironment(workloadId, environment, pageable),
                 DeploymentView::of);
     }
 
+    /**
+     * Two deployments of one workload can share the latest timestamp; the one with the higher
+     * (time-ordered) identifier wins so the result does not depend on row order.
+     */
     @Transactional(readOnly = true)
     public Map<UUID, DeploymentView> latestByWorkload(DeploymentEnvironment environment) {
         return deployments.findLatestPerWorkload(environment).stream()
                 .map(DeploymentView::of)
                 .collect(Collectors.toMap(DeploymentView::workloadId, Function.identity(),
-                        (first, second) -> first.deployedAt().isAfter(second.deployedAt()) ? first : second));
+                        BinaryOperator.maxBy(CHRONOLOGICAL)));
     }
 }
