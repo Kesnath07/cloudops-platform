@@ -28,7 +28,7 @@
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springdoc.version>3.1.1</springdoc.version>
-        <aws-sdk.version>2.55.11</aws-sdk.version>
+        <aws-sdk.version>2.55.12</aws-sdk.version>
         <archunit.version>1.5.1</archunit.version>
         <embedded-postgres.version>2.2.2</embedded-postgres.version>
         <embedded-postgres-binaries.version>17.11.0</embedded-postgres-binaries.version>
