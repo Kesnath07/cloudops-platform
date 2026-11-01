@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -27,13 +27,13 @@
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <springdoc.version>3.1.1</springdoc.version>
-        <aws-sdk.version>2.55.11</aws-sdk.version>
+        <springdoc.version>3.2.0</springdoc.version>
+        <aws-sdk.version>2.57.6</aws-sdk.version>
         <archunit.version>1.5.1</archunit.version>
         <embedded-postgres.version>2.2.2</embedded-postgres.version>
         <embedded-postgres-binaries.version>17.11.0</embedded-postgres-binaries.version>
-        <jacoco.version>0.8.15</jacoco.version>
-        <spotbugs-plugin.version>4.10.4.1</spotbugs-plugin.version>
+        <jacoco.version>0.8.16</jacoco.version>
+        <spotbugs-plugin.version>4.10.5.0</spotbugs-plugin.version>
     </properties>
 
     <dependencyManagement>
