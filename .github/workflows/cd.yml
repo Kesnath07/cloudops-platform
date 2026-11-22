@@ -33,7 +33,7 @@ jobs:
     env:
       IMAGE_TAG: ${{ github.sha }}
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: api-image
           path: ${{ runner.temp }}
@@ -44,7 +44,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
       - name: Log in to ECR
         id: ecr
-        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+        uses: aws-actions/amazon-ecr-login@7290e214a610b32bc0eef81748948b6d466a8783 # v2.2.0
       # Tags are immutable, so a re-run of the same commit skips the push instead of failing.
       - name: Push image
         env:
